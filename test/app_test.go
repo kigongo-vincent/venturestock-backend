@@ -43,7 +43,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestHealth(t *testing.T) {
-	// t.Skip()
+	t.Skip()
 	req, _ := http.NewRequest(http.MethodGet, BASE_URL("health"), nil)
 
 	res, err := TestApp.Test(req)

@@ -10,7 +10,13 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/joho/godotenv"
+	"github.com/kigongo-vincent/venturestock-backend/modules/auth"
 	"github.com/kigongo-vincent/venturestock-backend/modules/base"
+	"github.com/kigongo-vincent/venturestock-backend/modules/branch"
+	"github.com/kigongo-vincent/venturestock-backend/modules/business"
+	"github.com/kigongo-vincent/venturestock-backend/modules/product"
+	"github.com/kigongo-vincent/venturestock-backend/modules/sale"
+	"github.com/kigongo-vincent/venturestock-backend/modules/user"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -26,8 +32,9 @@ func RegisterAppRoutes(dependecies Dependencies) {
 		return c.SendStatus(fiber.StatusOK)
 
 	})
+
 	register := base.RouteRegister{DB: dependecies.DB, Router: v1}
-	fmt.Println(register)
+	auth.RouterRegister(&register)
 }
 
 func SetupApplication() *fiber.App {
@@ -62,6 +69,7 @@ func ConnectDB() *gorm.DB {
 
 		Logger: logger.Default.LogMode(logger.Info),
 	})
+	db.AutoMigrate(&user.User{}, &business.Business{}, &branch.Branch{}, &product.Product{}, sale.Sale{})
 	if err != nil {
 		log.Fatal("failed to start application due to db connection failure")
 

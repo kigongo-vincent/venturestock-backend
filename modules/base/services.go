@@ -1,6 +1,7 @@
 package base
 
 import (
+	"errors"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -19,6 +20,19 @@ func SetupApplication() *fiber.App {
 	app.Use(limiter.New(limiter.Config{Max: 100, Expiration: 60 * time.Second}))
 
 	return app
+}
+
+func GetUserIDFromCtx(c *fiber.Ctx) (uint, error) {
+	// If stored as a uint directly in your JWT middleware:
+	userId, ok := c.Locals("id").(uint)
+	if !ok {
+		// Or fallback if your token parser saves it as a float64/int
+		if val, ok := c.Locals("id").(float64); ok {
+			return uint(val), nil
+		}
+		return 0, errors.New("unauthorized: missing or invalid user token context")
+	}
+	return userId, nil
 }
 
 // FilteredPagination unwraps the PaginationControls from the APIRequest

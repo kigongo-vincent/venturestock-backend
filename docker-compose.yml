@@ -1,6 +1,6 @@
 services:
   db:
-    container_name: mbv1
+    container_name: vs1
     image: postgres:15
 
     environment:
