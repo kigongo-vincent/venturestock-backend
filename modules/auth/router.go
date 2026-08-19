@@ -10,5 +10,6 @@ func RouterRegister(r *base.RouteRegister) {
 	g.Post("/login", s.Login)
 	g.Post("/signup", s.Signup)
 	g.Post("/googleAuth", s.GoogleAuth)
+	g.Post("/googleSignup", s.GoogleSignup)
 
 }

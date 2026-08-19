@@ -1,28 +1,46 @@
 package user
 
-import "gorm.io/gorm"
+import (
+	"time"
 
-type UserRole string
-
-const (
-	Admin      UserRole = "admin"
-	SuperAdmin UserRole = "super-admin"
-	Default    UserRole = "default"
-	Manager    UserRole = "manager"
+	"github.com/kigongo-vincent/venturestock-backend/modules/shared"
+	"gorm.io/gorm"
 )
-
-type User struct {
-	gorm.Model
-	Email    string   `json:"email"`
-	Phone    string   `json:"phone"`
-	Name     string   `json:"name"`
-	Role     UserRole `json:"role" gorm:"default:default"`
-	Photo    string   `json:"photo"`
-	IsActive bool     `json:"isActive" gorm:"default:false"`
-	Password string   `json:"password"`
-	GoogleID string   `json:"googleId"`
-}
 
 type UserService struct {
 	DB *gorm.DB
+}
+
+type CreateWorkerPayload struct {
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	Phone    string `json:"phone"`
+	Password string `json:"password"`
+	BranchID uint   `json:"branchId"`
+}
+
+type UpdateAccountRequest struct {
+	Photo string `json:"photo"`
+	Name  string `json:"name"`
+}
+
+type UpdatePhoneRequest struct {
+	Phone string `json:"phone"`
+}
+
+type RequestOTPRequest struct {
+	Email string `json:"email"`
+}
+
+type UpdateEmailRequest struct {
+	Email string `json:"email"`
+	Code  string `json:"code"`
+}
+
+type OTP struct {
+	gorm.Model
+	UserID     *uint        `json:"userId"`
+	User       *shared.User `json:"user" gorm:"foreignKey:UserID"`
+	Code       string       `json:"code"`
+	ExpiryDate time.Time    `json:"expiryDate"`
 }

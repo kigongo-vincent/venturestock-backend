@@ -10,12 +10,17 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/joho/godotenv"
+	"github.com/kigongo-vincent/venturestock-backend/modules/analytics"
 	"github.com/kigongo-vincent/venturestock-backend/modules/auth"
 	"github.com/kigongo-vincent/venturestock-backend/modules/base"
 	"github.com/kigongo-vincent/venturestock-backend/modules/branch"
 	"github.com/kigongo-vincent/venturestock-backend/modules/business"
+	"github.com/kigongo-vincent/venturestock-backend/modules/expense"
+	"github.com/kigongo-vincent/venturestock-backend/modules/investment"
+	"github.com/kigongo-vincent/venturestock-backend/modules/notifications"
 	"github.com/kigongo-vincent/venturestock-backend/modules/product"
 	"github.com/kigongo-vincent/venturestock-backend/modules/sale"
+	"github.com/kigongo-vincent/venturestock-backend/modules/shared"
 	"github.com/kigongo-vincent/venturestock-backend/modules/user"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -35,6 +40,15 @@ func RegisterAppRoutes(dependecies Dependencies) {
 
 	register := base.RouteRegister{DB: dependecies.DB, Router: v1}
 	auth.RouterRegister(&register)
+	notifications.RouterRegister(&register)
+	product.RouterRegister(&register)
+	sale.RouterRegister(&register)
+	branch.RouterRegister(&register)
+	expense.RouterRegister(&register)
+	analytics.RouterRegister(&register)
+	user.RouterRegister(&register)
+	business.RouterRegister(&register)
+	investment.RouterRegister(&register)
 }
 
 func SetupApplication() *fiber.App {
@@ -69,7 +83,17 @@ func ConnectDB() *gorm.DB {
 
 		Logger: logger.Default.LogMode(logger.Info),
 	})
-	db.AutoMigrate(&user.User{}, &business.Business{}, &branch.Branch{}, &product.Product{}, sale.Sale{})
+	db.AutoMigrate(
+		&shared.User{},
+		&shared.Business{},
+		&product.Branch{},
+		&product.Product{},
+		&sale.Sale{},
+		&expense.Expense{},
+		&notifications.Notification{},
+		&user.OTP{},
+		&investment.CapitalInvestment{},
+	)
 	if err != nil {
 		log.Fatal("failed to start application due to db connection failure")
 

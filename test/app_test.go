@@ -20,7 +20,7 @@ import (
 
 var TestApp *fiber.App
 var URL = "/api/v1"
-var BEARER = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3ODYxNzM2MTUsImlkIjoxfQ.dH0nSuNl2medBm6H6TA-cdGLZPgwtDFsCTvcpP_zsa8"
+var BEARER = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3ODkxMDU2MTIsImlkIjoxMywicm9sZSI6ImRlZmF1bHQifQ.FjEq41EmvNoJy_q9TZEDiJqaaW3fsUzOwH2zXos5rVI"
 
 func BASE_URL(v string) string {
 	return fmt.Sprintf("%s/%s", URL, v)
