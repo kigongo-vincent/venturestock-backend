@@ -5,6 +5,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/kigongo-vincent/venturestock-backend/modules/base"
+	"github.com/kigongo-vincent/venturestock-backend/modules/shared"
 	"gorm.io/gorm"
 )
 
@@ -28,6 +29,28 @@ func (s *ExpenseService) Create(c *fiber.Ctx) error {
 		return base.API_ERROR(c, "invalid payload")
 	}
 
+	branchIDs, bErr := shared.GetUserBranchIDs(s.DB, UserID)
+	if bErr != nil {
+		return base.API_ERROR(c, "failed to resolve branches")
+	}
+	if len(branchIDs) == 0 {
+		return base.API_ERROR(c, "branch not found")
+	}
+
+	// default to the user's primary branch when the client does not send one
+	if payload.BranchID == nil || *payload.BranchID == 0 {
+		first := branchIDs[0]
+		payload.BranchID = &first
+	}
+
+	allowed, aErr := shared.UserHasBranchAccess(s.DB, UserID, *payload.BranchID)
+	if aErr != nil {
+		return base.API_ERROR(c, "failed to verify branch access")
+	}
+	if !allowed {
+		return base.API_ERROR(c, "branch not found")
+	}
+
 	payload.UserID = &UserID
 
 	if err := s.DB.Create(&payload).Error; err != nil {
@@ -40,10 +63,23 @@ func (s *ExpenseService) Create(c *fiber.Ctx) error {
 // FindByBranch returns expenses recorded under a specific branch.
 func (s *ExpenseService) FindByBranch(c *fiber.Ctx) error {
 
+	UserID, uErr := base.GetUserIDFromCtx(c)
+	if uErr != nil {
+		return base.API_ERROR(c, "user not found")
+	}
+
 	param := c.Params("branchId")
 	branchID, pErr := strconv.ParseUint(param, 10, 64)
 	if pErr != nil {
 		return base.API_ERROR(c, "invalid branch id")
+	}
+
+	allowed, aErr := shared.UserHasBranchAccess(s.DB, UserID, uint(branchID))
+	if aErr != nil {
+		return base.API_ERROR(c, "failed to verify branch access")
+	}
+	if !allowed {
+		return base.API_ERROR(c, "branch not found")
 	}
 
 	var expenses []Expense
@@ -75,13 +111,15 @@ func (s *ExpenseService) Delete(c *fiber.Ctx) error {
 		return base.API_ERROR(c, "expense not found")
 	}
 
-	var isMember int64
-	if err := s.DB.Table("branch_members").
-		Where("branch_id = ? AND user_id = ?", expense.BranchID, UserID).
-		Count(&isMember).Error; err != nil {
-		return base.API_ERROR(c, "failed to verify branch access")
+	allowed := false
+	if expense.BranchID != nil {
+		var aErr error
+		allowed, aErr = shared.UserHasBranchAccess(s.DB, UserID, *expense.BranchID)
+		if aErr != nil {
+			return base.API_ERROR(c, "failed to verify branch access")
+		}
 	}
-	if isMember == 0 {
+	if !allowed {
 		return base.API_ERROR(c, "expense not found")
 	}
 
@@ -108,14 +146,11 @@ func (s *ExpenseService) FindByUser(c *fiber.Ctx) error {
 	// viewing your own expenses is always allowed; viewing someone else's
 	// requires a shared branch
 	if uint(targetUserID) != RequestingUserID {
-		var shared int64
-		if err := s.DB.Table("branch_members bm1").
-			Joins("JOIN branch_members bm2 ON bm1.branch_id = bm2.branch_id").
-			Where("bm1.user_id = ? AND bm2.user_id = ?", RequestingUserID, uint(targetUserID)).
-			Count(&shared).Error; err != nil {
+		allowed, aErr := shared.UsersShareBranch(s.DB, RequestingUserID, uint(targetUserID))
+		if aErr != nil {
 			return base.API_ERROR(c, "failed to verify access")
 		}
-		if shared == 0 {
+		if !allowed {
 			return base.API_ERROR(c, "user not found")
 		}
 	}

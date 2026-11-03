@@ -130,13 +130,11 @@ func (s *SaleService) Create(c *fiber.Ctx) error {
 	}
 
 	if prod.BranchID != nil {
-		var isMember int64
-		if err := s.DB.Table("branch_members").
-			Where("branch_id = ? AND user_id = ?", *prod.BranchID, UserID).
-			Count(&isMember).Error; err != nil {
+		allowed, aErr := shared.UserHasBranchAccess(s.DB, UserID, *prod.BranchID)
+		if aErr != nil {
 			return base.API_ERROR(c, "failed to verify branch access")
 		}
-		if isMember == 0 {
+		if !allowed {
 			return base.API_ERROR(c, "product not found")
 		}
 	}
@@ -241,14 +239,11 @@ func (s *SaleService) FindBySeller(c *fiber.Ctx) error {
 	}
 
 	if uint(sellerID) != RequestingUserID {
-		var shared int64
-		if err := s.DB.Table("branch_members bm1").
-			Joins("JOIN branch_members bm2 ON bm1.branch_id = bm2.branch_id").
-			Where("bm1.user_id = ? AND bm2.user_id = ?", RequestingUserID, uint(sellerID)).
-			Count(&shared).Error; err != nil {
+		allowed, aErr := shared.UsersShareBranch(s.DB, RequestingUserID, uint(sellerID))
+		if aErr != nil {
 			return base.API_ERROR(c, "failed to verify access")
 		}
-		if shared == 0 {
+		if !allowed {
 			return base.API_ERROR(c, "user not found")
 		}
 	}

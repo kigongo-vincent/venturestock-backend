@@ -127,6 +127,9 @@ func (s *InvestmentService) Delete(c *fiber.Ctx) error {
 	if err != nil {
 		return base.API_ERROR(c, "user not found")
 	}
+	if err := base.DenyWorker(c, "workers cannot manage capital"); err != nil {
+		return err
+	}
 
 	id := c.Params("id")
 
@@ -155,6 +158,9 @@ func (s *InvestmentService) Comparison(c *fiber.Ctx) error {
 	userID, err := base.GetUserIDFromCtx(c)
 	if err != nil {
 		return base.API_ERROR(c, "user not found")
+	}
+	if err := base.DenyWorker(c, "workers cannot view capital"); err != nil {
+		return err
 	}
 
 	id := c.Params("id")

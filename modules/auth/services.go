@@ -14,6 +14,7 @@ import (
 	"github.com/kigongo-vincent/venturestock-backend/modules/notifications"
 	"github.com/kigongo-vincent/venturestock-backend/modules/product"
 	"github.com/kigongo-vincent/venturestock-backend/modules/shared"
+	"github.com/kigongo-vincent/venturestock-backend/modules/subscription"
 	"github.com/kigongo-vincent/venturestock-backend/modules/user"
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/api/idtoken"
@@ -52,6 +53,7 @@ func (s *AuthService) Login(c *fiber.Ctx) error {
 	if err := s.DB.Preload("Business").First(&branch, branchMember.BranchID).Error; err != nil {
 		return base.API_ERROR(c, "failed to get branch")
 	}
+	subscription.NewService(s.DB).AttachSnapshot(branch.Business)
 
 	user.Branch = branch
 	data := LoginUser(user)
@@ -112,7 +114,7 @@ func (s *AuthService) Signup(c *fiber.Ctx) error {
 	}
 
 	nSVC := notifications.NewService(s.DB)
-	nSVC.Create(notifications.Notification{Path: fmt.Sprintf(`/extras/notifications?id=%v`), UserID: &UserID, Title: "Welcome aboard 🎉🎉🎉🎉🎉", Description: fmt.Sprintf("hello, %s, your account was created successfully", body.Name)})
+	nSVC.Create(notifications.Notification{Path: "/extras/notifications", UserID: &UserID, Title: "Welcome aboard 🎉🎉🎉🎉🎉", Description: fmt.Sprintf("hello, %s, your account was created successfully", body.Name)})
 
 	// create the business with the user as the head
 	BusinessID, bErr := businessService.Create(shared.Business{Name: body.BusinessName, Location: body.BusinessLocation, OwnerID: &UserID})
@@ -120,7 +122,11 @@ func (s *AuthService) Signup(c *fiber.Ctx) error {
 		return base.API_ERROR(c, "failed to create the business")
 	}
 
-	nSVC.Create(notifications.Notification{Path: fmt.Sprintf(`/settings/business?id=%v`), UserID: &UserID, Title: "Business registration completed 🎉🎉", Description: fmt.Sprintf("hello, %s, your business \"%s\" was registered successfully", body.Name, body.BusinessName)})
+	nSVC.Create(notifications.Notification{Path: "/settings/business", UserID: &UserID, Title: "Business registration completed 🎉🎉", Description: fmt.Sprintf("hello, %s, your business \"%s\" was registered successfully", body.Name, body.BusinessName)})
+
+	if err := subscription.NewService(s.DB).CreateFreeSubscription(BusinessID); err != nil {
+		return base.API_ERROR(c, "failed to create the free subscription")
+	}
 
 	// create the main branch for the business
 	BranchID, braErr := branchService.Create(product.Branch{Name: "Main", BusinessID: &BusinessID})
@@ -138,6 +144,7 @@ func (s *AuthService) Signup(c *fiber.Ctx) error {
 	if err := s.DB.Preload("Business").First(&branch, BranchID).Error; err != nil {
 		return base.API_ERROR(c, "failed to get branch")
 	}
+	subscription.NewService(s.DB).AttachSnapshot(branch.Business)
 
 	nSVC.Create(notifications.Notification{Path: fmt.Sprintf(`/extras/branch?id=%v`, BranchID), UserID: &UserID, Title: "Branch created 🎉", Description: fmt.Sprintf("hello, %s, a main branch has been created for your business, you're initially added as a member of the branch", body.Name)})
 
@@ -145,6 +152,7 @@ func (s *AuthService) Signup(c *fiber.Ctx) error {
 		Email:  body.Email,
 		Phone:  body.Phone,
 		Name:   body.Name,
+		Role:   shared.Admin,
 		Model:  gorm.Model{ID: UserID},
 		Branch: branch,
 	}
@@ -217,6 +225,7 @@ func (s *AuthService) GoogleAuth(c *fiber.Ctx) error {
 	if err := s.DB.Preload("Business").First(&userBranch, branchMember.BranchID).Error; err != nil {
 		return base.API_ERROR(c, "failed to get branch")
 	}
+	subscription.NewService(s.DB).AttachSnapshot(userBranch.Business)
 
 	existingUser.Branch = userBranch
 	loginData := LoginUser(existingUser)
@@ -274,6 +283,10 @@ func (s *AuthService) GoogleSignup(c *fiber.Ctx) error {
 
 	nSVC.Create(notifications.Notification{UserID: &UserID, Title: "Business registration completed 🎉🎉", Description: "hello, " + profile.Name + ", your business\"" + body.BusinessName + "\" was registered successfully"})
 
+	if err := subscription.NewService(s.DB).CreateFreeSubscription(BusinessID); err != nil {
+		return base.API_ERROR(c, "failed to create the free subscription")
+	}
+
 	BranchID, braErr := branchService.Create(product.Branch{Name: "Main", BusinessID: &BusinessID})
 	if braErr != nil {
 		return base.API_ERROR(c, "failed to create branch")
@@ -287,6 +300,7 @@ func (s *AuthService) GoogleSignup(c *fiber.Ctx) error {
 	if err := s.DB.Preload("Business").First(&userBranch, BranchID).Error; err != nil {
 		return base.API_ERROR(c, "failed to get branch")
 	}
+	subscription.NewService(s.DB).AttachSnapshot(userBranch.Business)
 
 	nSVC.Create(notifications.Notification{UserID: &UserID, Title: "Branch created 🎉", Description: "hello, " + profile.Name + ", a main branch has been created for your business, you're initially added as a member of the branch"})
 
@@ -294,6 +308,7 @@ func (s *AuthService) GoogleSignup(c *fiber.Ctx) error {
 		Email:  profile.Email,
 		Name:   profile.Name,
 		Photo:  profile.Photo,
+		Role:   shared.Admin,
 		Model:  gorm.Model{ID: UserID},
 		Branch: userBranch,
 	}

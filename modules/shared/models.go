@@ -1,15 +1,28 @@
 package shared
 
 import (
+	"time"
+
 	"gorm.io/gorm"
 )
 
 type Business struct {
 	gorm.Model
-	OwnerID  *uint  `json:"ownerId"`
-	Owner    *User  `json:"owner" gorm:"foreignKey:OwnerID"`
-	Name     string `json:"name"`
-	Location string `json:"location"`
+	OwnerID      *uint                 `json:"ownerId"`
+	Owner        *User                 `json:"owner" gorm:"foreignKey:OwnerID"`
+	Name         string                `json:"name"`
+	Location     string                `json:"location"`
+	Subscription *SubscriptionSnapshot `json:"subscription,omitempty" gorm:"-"`
+}
+
+type SubscriptionSnapshot struct {
+	ID          uint      `json:"id"`
+	Status      string    `json:"status"`
+	IsActive    bool      `json:"isActive"`
+	PackageSlug string    `json:"packageSlug"`
+	PackageName string    `json:"packageName"`
+	StartsAt    time.Time `json:"startsAt"`
+	ExpiresAt   time.Time `json:"expiresAt"`
 }
 
 type Branch struct {

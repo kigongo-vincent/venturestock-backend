@@ -8,7 +8,7 @@ import (
 func RouterRegister(r *base.RouteRegister) {
 
 	s := NewService(r.DB)
-	g := r.Router.Group("analytics", middleware.VerifyJWT())
+	g := r.Router.Group("analytics", middleware.VerifyJWT(r.DB))
 
 	g.Get("/home", s.Home)
 	g.Get("/reports", s.Reports)

@@ -6,6 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/kigongo-vincent/venturestock-backend/modules/base"
+	"github.com/kigongo-vincent/venturestock-backend/modules/shared"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -35,11 +36,8 @@ func (s *ProductService) FindAll(c *fiber.Ctx) error {
 		return base.API_ERROR(c, "user not found")
 	}
 
-	var branchIDs []uint
-	if err := s.DB.Table("branches").
-		Joins("JOIN branch_members ON branch_members.branch_id = branches.id").
-		Where("branch_members.user_id = ?", UserID).
-		Pluck("branches.id", &branchIDs).Error; err != nil {
+	branchIDs, bErr := shared.GetUserBranchIDs(s.DB, UserID)
+	if bErr != nil {
 		return base.API_ERROR(c, "failed to resolve branches")
 	}
 
@@ -145,14 +143,12 @@ func (s *ProductService) Create(c *fiber.Ctx) error {
 		return base.API_ERROR(c, "branch is required")
 	}
 
-	// verify the user actually belongs to the branch they're posting into
-	var isMember int64
-	if err := s.DB.Table("branch_members").
-		Where("branch_id = ? AND user_id = ?", *payload.BranchID, UserID).
-		Count(&isMember).Error; err != nil {
+	// verify the branch falls inside the user's visible scope
+	allowed, aErr := shared.UserHasBranchAccess(s.DB, UserID, *payload.BranchID)
+	if aErr != nil {
 		return base.API_ERROR(c, "failed to verify branch access")
 	}
-	if isMember == 0 {
+	if !allowed {
 		return base.API_ERROR(c, "branch not found")
 	}
 
@@ -184,15 +180,13 @@ func (s *ProductService) Update(c *fiber.Ctx) error {
 		return base.API_ERROR(c, "product not found")
 	}
 
-	// verify the user belongs to the branch that currently owns this product
+	// verify the branch that currently owns this product is in the user's scope
 	if existing.BranchID != nil {
-		var isMember int64
-		if err := s.DB.Table("branch_members").
-			Where("branch_id = ? AND user_id = ?", *existing.BranchID, UserID).
-			Count(&isMember).Error; err != nil {
+		allowed, aErr := shared.UserHasBranchAccess(s.DB, UserID, *existing.BranchID)
+		if aErr != nil {
 			return base.API_ERROR(c, "failed to verify branch access")
 		}
-		if isMember == 0 {
+		if !allowed {
 			return base.API_ERROR(c, "product not found")
 		}
 	}
@@ -209,15 +203,13 @@ func (s *ProductService) Update(c *fiber.Ctx) error {
 		return base.API_ERROR(c, "branch is required")
 	}
 
-	// if the branch is being changed, verify the user belongs to the new one too
-	if *payload.BranchID != *existing.BranchID {
-		var isMember int64
-		if err := s.DB.Table("branch_members").
-			Where("branch_id = ? AND user_id = ?", *payload.BranchID, UserID).
-			Count(&isMember).Error; err != nil {
+	// if the branch is being changed, verify the new one is in scope too
+	if existing.BranchID == nil || *payload.BranchID != *existing.BranchID {
+		allowed, aErr := shared.UserHasBranchAccess(s.DB, UserID, *payload.BranchID)
+		if aErr != nil {
 			return base.API_ERROR(c, "failed to verify branch access")
 		}
-		if isMember == 0 {
+		if !allowed {
 			return base.API_ERROR(c, "branch not found")
 		}
 	}
@@ -258,13 +250,11 @@ func (s *ProductService) AdjustStock(c *fiber.Ctx) error {
 	}
 
 	if existing.BranchID != nil {
-		var isMember int64
-		if err := s.DB.Table("branch_members").
-			Where("branch_id = ? AND user_id = ?", *existing.BranchID, UserID).
-			Count(&isMember).Error; err != nil {
+		allowed, aErr := shared.UserHasBranchAccess(s.DB, UserID, *existing.BranchID)
+		if aErr != nil {
 			return base.API_ERROR(c, "failed to verify branch access")
 		}
-		if isMember == 0 {
+		if !allowed {
 			return base.API_ERROR(c, "you are trying to access data that is not yours")
 		}
 	}

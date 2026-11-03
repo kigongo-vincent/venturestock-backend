@@ -47,6 +47,11 @@ func (s *NotificationService) Mark(ID uint) error {
 
 func (s *NotificationService) MarkOne(c *fiber.Ctx) error {
 
+	UserID, uErr := base.GetUserIDFromCtx(c)
+	if uErr != nil {
+		return base.API_ERROR(c, "user not found")
+	}
+
 	param := c.Params("id")
 	if param == "" {
 		return base.API_ERROR(c, "failed to get param")
@@ -58,6 +63,11 @@ func (s *NotificationService) MarkOne(c *fiber.Ctx) error {
 	}
 
 	NotificationID := uint(parsedParam)
+	var notification Notification
+	if err := s.DB.Where("id = ? AND user_id = ?", NotificationID, UserID).First(&notification).Error; err != nil {
+		return base.API_ERROR(c, "notification not found")
+	}
+
 	if err := s.Mark(NotificationID); err != nil {
 		return base.API_ERROR(c, "failed to mark read")
 	}

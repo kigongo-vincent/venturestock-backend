@@ -7,7 +7,7 @@ import (
 
 func RouterRegister(r *base.RouteRegister) {
 	s := NewService(r.DB)
-	g := r.Router.Group("users", middleware.VerifyJWT())
+	g := r.Router.Group("users", middleware.VerifyJWT(r.DB))
 	g.Post("/", s.CreateWorker)
 	g.Put("/", s.UpdateAccount)
 	g.Get("/:id", s.FindByID)

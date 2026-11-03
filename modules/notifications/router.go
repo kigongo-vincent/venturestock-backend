@@ -8,7 +8,7 @@ import (
 func RouterRegister(r *base.RouteRegister) {
 
 	s := NewService(r.DB)
-	g := r.Router.Group("notifications", middleware.VerifyJWT())
+	g := r.Router.Group("notifications", middleware.VerifyJWT(r.DB))
 	g.Get("/", s.FindAll)
 	g.Get("/mark/:id", s.MarkOne)
 	g.Get("/mark", s.MarkAll)

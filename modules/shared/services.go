@@ -39,3 +39,52 @@ func GetUserBranchIDs(DB *gorm.DB, userID uint) ([]uint, error) {
 	}
 	return ids, nil
 }
+
+// UserHasBranchAccess reports whether a branch falls inside the user's
+// visible scope (owned-business branches for owners, memberships for
+// workers).
+func UserHasBranchAccess(DB *gorm.DB, userID, branchID uint) (bool, error) {
+	if branchID == 0 {
+		return false, nil
+	}
+
+	branchIDs, err := GetUserBranchIDs(DB, userID)
+	if err != nil {
+		return false, err
+	}
+	return containsID(branchIDs, branchID), nil
+}
+
+// UsersShareBranch reports whether two users have at least one branch in
+// common, using the requesting user's visible branch scope so owners also
+// match workers in branches under their business.
+func UsersShareBranch(DB *gorm.DB, requesterID, targetID uint) (bool, error) {
+	if requesterID == targetID {
+		return true, nil
+	}
+
+	branchIDs, err := GetUserBranchIDs(DB, requesterID)
+	if err != nil {
+		return false, err
+	}
+	if len(branchIDs) == 0 {
+		return false, nil
+	}
+
+	var count int64
+	if err := DB.Table("branch_members").
+		Where("user_id = ? AND branch_id IN ?", targetID, branchIDs).
+		Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func containsID(ids []uint, id uint) bool {
+	for _, v := range ids {
+		if v == id {
+			return true
+		}
+	}
+	return false
+}

@@ -21,6 +21,7 @@ import (
 	"github.com/kigongo-vincent/venturestock-backend/modules/product"
 	"github.com/kigongo-vincent/venturestock-backend/modules/sale"
 	"github.com/kigongo-vincent/venturestock-backend/modules/shared"
+	"github.com/kigongo-vincent/venturestock-backend/modules/subscription"
 	"github.com/kigongo-vincent/venturestock-backend/modules/user"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -49,6 +50,7 @@ func RegisterAppRoutes(dependecies Dependencies) {
 	user.RouterRegister(&register)
 	business.RouterRegister(&register)
 	investment.RouterRegister(&register)
+	subscription.RouterRegister(&register)
 }
 
 func SetupApplication() *fiber.App {
@@ -83,7 +85,11 @@ func ConnectDB() *gorm.DB {
 
 		Logger: logger.Default.LogMode(logger.Info),
 	})
-	db.AutoMigrate(
+	if err != nil {
+		log.Fatal("failed to start application due to db connection failure")
+	}
+
+	if err := db.AutoMigrate(
 		&shared.User{},
 		&shared.Business{},
 		&product.Branch{},
@@ -93,10 +99,18 @@ func ConnectDB() *gorm.DB {
 		&notifications.Notification{},
 		&user.OTP{},
 		&investment.CapitalInvestment{},
-	)
-	if err != nil {
-		log.Fatal("failed to start application due to db connection failure")
+		&subscription.Package{},
+		&subscription.Subscription{},
+		&subscription.Payment{},
+	); err != nil {
+		log.Fatal("failed to migrate application database")
+	}
 
+	if err := subscription.SeedPackages(db); err != nil {
+		log.Fatal("failed to seed subscription packages")
+	}
+	if err := subscription.BackfillFreeSubscriptions(db); err != nil {
+		log.Fatal("failed to backfill free subscriptions")
 	}
 
 	return db

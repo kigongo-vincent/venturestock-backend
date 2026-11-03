@@ -91,13 +91,11 @@ func (s *UserService) CreateWorker(c *fiber.Ctx) error {
 		return base.API_ERROR(c, "phone or email is required")
 	}
 
-	var isMember int64
-	if err := s.DB.Table("branch_members").
-		Where("branch_id = ? AND user_id = ?", payload.BranchID, RequestingUserID).
-		Count(&isMember).Error; err != nil {
+	allowed, aErr := shared.UserHasBranchAccess(s.DB, RequestingUserID, payload.BranchID)
+	if aErr != nil {
 		return base.API_ERROR(c, "failed to verify branch access")
 	}
-	if isMember == 0 {
+	if !allowed {
 		return base.API_ERROR(c, "branch not found")
 	}
 
@@ -161,14 +159,11 @@ func (s *UserService) FindByID(c *fiber.Ctx) error {
 
 	// allow viewing your own profile always, otherwise require a shared branch
 	if uint(targetID) != RequestingUserID {
-		var shared int64
-		if err := s.DB.Table("branch_members bm1").
-			Joins("JOIN branch_members bm2 ON bm1.branch_id = bm2.branch_id").
-			Where("bm1.user_id = ? AND bm2.user_id = ?", RequestingUserID, uint(targetID)).
-			Count(&shared).Error; err != nil {
+		allowed, aErr := shared.UsersShareBranch(s.DB, RequestingUserID, uint(targetID))
+		if aErr != nil {
 			return base.API_ERROR(c, "failed to verify access")
 		}
-		if shared == 0 {
+		if !allowed {
 			return base.API_ERROR(c, "user not found")
 		}
 	}
