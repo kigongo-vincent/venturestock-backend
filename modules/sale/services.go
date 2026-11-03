@@ -24,15 +24,8 @@ func (s *SaleService) FindAll(c *fiber.Ctx) error {
 		return base.API_ERROR(c, "user not found")
 	}
 
-	// resolve branches by BUSINESS OWNERSHIP, not branch membership:
-	// businesses owned by this user -> branches under those businesses
-	var branchIDs []uint
-	if err := s.DB.Table("branches").
-		Joins("JOIN businesses ON businesses.id = branches.business_id").
-		Where("businesses.owner_id = ?", UserID).
-		Where("businesses.deleted_at IS NULL").
-		Where("branches.deleted_at IS NULL").
-		Pluck("branches.id", &branchIDs).Error; err != nil {
+	branchIDs, bErr := shared.GetUserBranchIDs(s.DB, UserID)
+	if bErr != nil {
 		return base.API_ERROR(c, "failed to resolve branches")
 	}
 

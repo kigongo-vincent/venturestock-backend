@@ -70,42 +70,7 @@ func (s *AnalyticsService) Home(c *fiber.Ctx) error {
 // member isn't given business-wide visibility just because someone
 // else owns it.
 func (s *AnalyticsService) getUserBranchIDs(userID uint) ([]uint, error) {
-
-	var ownedBusinessIDs []uint
-	if err := s.DB.Model(&shared.Business{}).
-		Where("owner_id = ?", userID).
-		Pluck("id", &ownedBusinessIDs).Error; err != nil {
-		return nil, err
-	}
-
-	if len(ownedBusinessIDs) > 0 {
-		var ownedBranches []product.Branch
-		if err := s.DB.
-			Where("business_id IN ?", ownedBusinessIDs).
-			Find(&ownedBranches).Error; err != nil {
-			return nil, err
-		}
-		ids := make([]uint, 0, len(ownedBranches))
-		for _, b := range ownedBranches {
-			ids = append(ids, b.ID)
-		}
-		return ids, nil
-	}
-
-	// not an owner — scope to explicit branch membership only
-	var memberBranches []product.Branch
-	if err := s.DB.
-		Joins("JOIN branch_members ON branch_members.branch_id = branches.id").
-		Where("branch_members.user_id = ?", userID).
-		Find(&memberBranches).Error; err != nil {
-		return nil, err
-	}
-
-	ids := make([]uint, 0, len(memberBranches))
-	for _, b := range memberBranches {
-		ids = append(ids, b.ID)
-	}
-	return ids, nil
+	return shared.GetUserBranchIDs(s.DB, userID)
 }
 
 // getUserProductIDs returns the IDs of all products belonging to the user's branches.

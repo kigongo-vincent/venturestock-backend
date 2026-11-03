@@ -28,6 +28,9 @@ func (s *BranchService) CreateHandler(c *fiber.Ctx) error {
 	if uErr != nil {
 		return base.API_ERROR(c, "user not found")
 	}
+	if err := base.DenyWorker(c, "workers cannot add branches"); err != nil {
+		return err
+	}
 
 	var payload CreateBranchPayload
 	if err := c.BodyParser(&payload); err != nil {
@@ -76,7 +79,17 @@ func (s *BranchService) FindAll(c *fiber.Ctx) error {
 
 	var branches []product.Branch
 	query := s.DB.Preload("Members")
-	if len(businessIDs) > 0 {
+	if base.IsWorker(c) {
+		branchIDs, bErr := shared.GetUserBranchIDs(s.DB, UserID)
+		if bErr != nil {
+			return base.API_ERROR(c, "failed to resolve branches")
+		}
+		if len(branchIDs) > 0 {
+			query = query.Where("id IN ?", branchIDs)
+		} else {
+			query = query.Where("1 = 0")
+		}
+	} else if len(businessIDs) > 0 {
 		query = query.Where("business_id IN ?", businessIDs)
 	} else {
 		query = query.Where("1 = 0")
@@ -135,6 +148,9 @@ func (s *BranchService) FindOne(c *fiber.Ctx) error {
 	if err := s.DB.Preload("Members").First(&b, uint(id)).Error; err != nil {
 		return base.API_ERROR(c, "branch not found")
 	}
+	if err := s.assertWorkerBranchAccess(c, b.ID); err != nil {
+		return err
+	}
 
 	var products []product.Product
 	if err := s.DB.Where("branch_id = ?", b.ID).Find(&products).Error; err != nil {
@@ -173,6 +189,9 @@ func (s *BranchService) Reports(c *fiber.Ctx) error {
 	id, pErr := strconv.ParseUint(param, 10, 64)
 	if pErr != nil {
 		return base.API_ERROR(c, "invalid branch id")
+	}
+	if err := s.assertWorkerBranchAccess(c, uint(id)); err != nil {
+		return err
 	}
 
 	var productIDs []uint
@@ -214,6 +233,9 @@ func (s *BranchService) FindUsers(c *fiber.Ctx) error {
 	if err := s.DB.Preload("Members").First(&b, uint(id)).Error; err != nil {
 		return base.API_ERROR(c, "branch not found")
 	}
+	if err := s.assertWorkerBranchAccess(c, b.ID); err != nil {
+		return err
+	}
 
 	var productIDs []uint
 	if err := s.DB.Table("products").Where("branch_id = ?", uint(id)).Pluck("id", &productIDs).Error; err != nil {
@@ -246,4 +268,21 @@ func (s *BranchService) FindUsers(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(base.APIResponse{Data: result})
+}
+
+func (s *BranchService) assertWorkerBranchAccess(c *fiber.Ctx, branchID uint) error {
+	if !base.IsWorker(c) {
+		return nil
+	}
+	UserID, uErr := base.GetUserIDFromCtx(c)
+	if uErr != nil {
+		return base.API_ERROR(c, "user not found")
+	}
+	var isMember int64
+	if err := s.DB.Table("branch_members").
+		Where("branch_id = ? AND user_id = ?", branchID, UserID).
+		Count(&isMember).Error; err != nil || isMember == 0 {
+		return base.API_ERROR(c, "branch not found")
+	}
+	return nil
 }

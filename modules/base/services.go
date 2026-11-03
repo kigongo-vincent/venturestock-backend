@@ -22,6 +22,25 @@ func SetupApplication() *fiber.App {
 	return app
 }
 
+func GetRoleFromCtx(c *fiber.Ctx) string {
+	role, _ := c.Locals("role").(string)
+	return role
+}
+
+func IsWorker(c *fiber.Ctx) bool {
+	return GetRoleFromCtx(c) == "default"
+}
+
+func DenyWorker(c *fiber.Ctx, message string) error {
+	if IsWorker(c) {
+		if message == "" {
+			message = "you do not have permission to do this"
+		}
+		return API_ERROR(c, message)
+	}
+	return nil
+}
+
 func GetUserIDFromCtx(c *fiber.Ctx) (uint, error) {
 	// If stored as a uint directly in your JWT middleware:
 	userId, ok := c.Locals("id").(uint)

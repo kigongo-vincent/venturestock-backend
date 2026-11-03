@@ -69,6 +69,9 @@ func (s *UserService) CreateWorker(c *fiber.Ctx) error {
 	if uErr != nil {
 		return base.API_ERROR(c, "user not found")
 	}
+	if err := base.DenyWorker(c, "workers cannot add other workers"); err != nil {
+		return err
+	}
 
 	var payload CreateWorkerPayload
 	if err := c.BodyParser(&payload); err != nil {

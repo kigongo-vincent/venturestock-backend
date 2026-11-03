@@ -129,6 +129,9 @@ func (s *ProductService) Create(c *fiber.Ctx) error {
 	if uErr != nil {
 		return base.API_ERROR(c, "user not found")
 	}
+	if err := base.DenyWorker(c, "workers cannot add products"); err != nil {
+		return err
+	}
 
 	var payload Product
 	if err := c.BodyParser(&payload); err != nil {
@@ -165,6 +168,9 @@ func (s *ProductService) Update(c *fiber.Ctx) error {
 	UserID, uErr := base.GetUserIDFromCtx(c)
 	if uErr != nil {
 		return base.API_ERROR(c, "user not found")
+	}
+	if err := base.DenyWorker(c, "workers cannot edit products"); err != nil {
+		return err
 	}
 
 	param := c.Params("id")
@@ -235,6 +241,9 @@ func (s *ProductService) AdjustStock(c *fiber.Ctx) error {
 	UserID, uErr := base.GetUserIDFromCtx(c)
 	if uErr != nil {
 		return base.API_ERROR(c, "user not found")
+	}
+	if err := base.DenyWorker(c, "workers cannot add stock"); err != nil {
+		return err
 	}
 
 	param := c.Params("id")

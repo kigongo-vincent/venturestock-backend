@@ -23,6 +23,9 @@ func (s *BusinessService) Create(business shared.Business) (uint, error) {
 }
 
 func (s *BusinessService) Update(c *fiber.Ctx) error {
+	if err := base.DenyWorker(c, "workers cannot update business details"); err != nil {
+		return err
+	}
 
 	var body UpdateBusinessRequest
 	if err := c.BodyParser(&body); err != nil {
